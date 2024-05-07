@@ -4,8 +4,9 @@
 #include <stdlib.h>
 
 #define N 8000
-#define EPSILON 1E-10
+#define EPSILON 1E-7
 #define TAU 1E-5
+
 
 void generate_A(double* A, int size);
 void generate_x(double* x, int size);
@@ -16,6 +17,7 @@ void calc_next_x(const double* Axb, double* x, double tau, int size);
 
 int main(int argc, char** argv)
 {
+    omp_set_schedule(1,1000);
     int iter_count;
     double accuracy = EPSILON + 1;
     double b_norm;
@@ -50,8 +52,9 @@ int main(int argc, char** argv)
     return 0;
 }
 
+
 void generate_A(double* A, int size){
-#pragma omp parallel for schedule(static,1000)
+#pragma omp parallel for schedule(runtime)
     for (int i = 0; i < size; i++){
         for (int j = 0; j < size; ++j)
             A[i * size + j] = 1;
@@ -60,20 +63,20 @@ void generate_A(double* A, int size){
 }
 
 void generate_x(double* x, int size){
-#pragma omp parallel for schedule(static,1000)
+#pragma omp parallel for schedule(runtime)
     for (int i = 0; i < size; i++)
         x[i] = 0;
 }
 
 void generate_b(double* b, int size){
-#pragma omp parallel for schedule(static,1000)
+#pragma omp parallel for schedule(runtime)
     for (int i = 0; i < size; i++)
         b[i] = N + 1;
 }
 
 double calc_norm_square(const double* vector, int size){
     double norm_square = 0.0;
-#pragma omp parallel for schedule(static,1000) \
+#pragma omp parallel for schedule(runtime) \
                      reduction(+ : norm_square)
     for (int i = 0; i < size; ++i)
         norm_square += vector[i] * vector[i];
@@ -81,7 +84,7 @@ double calc_norm_square(const double* vector, int size){
 }
 
 void calc_Axb(const double* A, const double* x, const double* b, double* Axb, int size){
-#pragma omp parallel for schedule(static,1000)
+#pragma omp parallel for schedule(runtime)
     for (int i = 0; i < size; ++i){
         Axb[i] = -b[i];
         for (int j = 0; j < N; ++j)
@@ -90,7 +93,7 @@ void calc_Axb(const double* A, const double* x, const double* b, double* Axb, in
 }
 
 void calc_next_x(const double* Axb, double* x, double tau, int size){
-#pragma omp parallel for schedule(static,1000)
+#pragma omp parallel for schedule(runtime)
     for (int i = 0; i < size; ++i)
         x[i] -= tau * Axb[i];
 }
