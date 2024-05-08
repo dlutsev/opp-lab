@@ -7,16 +7,6 @@
 #define n2 1800
 #define n3 1600
 
-void PrintMatrix(const double* matrix, int rows, int columns) {
-	for (int x = 0; x < rows; ++x) {
-		for (int y = 0; y < columns; ++y) {
-			printf("%lf ", matrix[x * columns + y]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
-
 int main(int argc, char** argv) {
 	MPI_Init(&argc, &argv);
 	double startTime, endTime;
@@ -149,9 +139,6 @@ int main(int argc, char** argv) {
 	free(subC);
 
 	if (rank == 0) {
-		// PrintMatrix(A, n1, n2);
-		// PrintMatrix(B, n2, n3);
-		// PrintMatrix(C, n1, n3);
 		endTime = MPI_Wtime();
 		printf("Result: %lf seconds left\n", endTime - startTime);
 		free(A);
