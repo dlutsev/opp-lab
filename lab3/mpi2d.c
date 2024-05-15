@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <mpi/mpi.h>
+#include <mpi.h>
 #include <limits.h>
 
 #define n1 2000
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 	subDims[0] = 1; subDims[1] = 0;
 	MPI_Cart_sub(gridComm, subDims, &columnComm);
 
-	double* A, * B, * C, * subA, * subB, * subC;
+	double* A =  NULL, * B = NULL, * C = NULL, * subA, * subB, * subC;
 	int sub_n = n1 / dims[0];
 	int sub_m = n3 / dims[1];
 	subA = (double*)malloc(sizeof(double) * sub_n * n2);
@@ -50,10 +50,10 @@ int main(int argc, char** argv) {
 		C = (double*)malloc(sizeof(double) * n1 * n3);
 
 		for (int i = 0; i < n1 * n2; i++) {
-			A[i] = i; //random val
+			A[i] = i;
 		}
 		for (int i = 0; i < n2 * n3; i++) {
-			B[i] = i; //random val
+			B[i] = i;
 		}
 
 		startTime = MPI_Wtime();
@@ -70,26 +70,16 @@ int main(int argc, char** argv) {
 
 	MPI_Datatype SUB_B;
 	MPI_Type_vector(n2, sub_m, n3, MPI_DOUBLE, &SUB_B);
-	MPI_Type_commit(&SUB_B);
-	MPI_Datatype SUB_B_CONTIGUOUS;
-	MPI_Type_contiguous(n2 * sub_m, MPI_DOUBLE, &SUB_B_CONTIGUOUS);
-	MPI_Type_commit(&SUB_B_CONTIGUOUS);
-	if ((coords[0] == 0) && (coords[1] == 0)) {
-		for (int row = 0; row < n2; row++) {
-			for (int column = 0; column < sub_m; column++) {
-				subB[row * sub_m + column] = B[row * n3 + column];
-			}
-		}
-		for (int i = 1; i < dims[1]; i++) {
-			MPI_Send(B + sub_m * i, 1, SUB_B, i, 1111, rowComm);
-		}
-	}
-	if ((coords[0] == 0) && (coords[1] != 0)) {
-		MPI_Recv(subB, 1, SUB_B_CONTIGUOUS, 0, 1111, rowComm, MPI_STATUS_IGNORE);
-	}
-	MPI_Bcast(subB, 1, SUB_B_CONTIGUOUS, 0, columnComm);
+	MPI_Datatype SUB_B_RES;
+	int mpi_double_size;
+	MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
+	MPI_Type_create_resized(SUB_B, 0, sub_m * mpi_double_size , &SUB_B_RES);
+	MPI_Type_commit(&SUB_B_RES);
+	if (coords[0]==0)
+		MPI_Scatter(B, 1, SUB_B_RES, subB, sub_m*n2, MPI_DOUBLE, 0, rowComm);
+	MPI_Bcast(subB, sub_m*n2, MPI_DOUBLE, 0, columnComm);
 	MPI_Type_free(&SUB_B);
-	MPI_Type_free(&SUB_B_CONTIGUOUS);
+	MPI_Type_free(&SUB_B_RES);
 
 	for (int row = 0; row < sub_n; row++) {
 		for (int column = 0; column < sub_m; column++) {
