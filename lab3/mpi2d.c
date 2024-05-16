@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 	subDims[0] = 1; subDims[1] = 0;
 	MPI_Cart_sub(gridComm, subDims, &columnComm);
 
-	double* A =  NULL, * B = NULL, * C = NULL, * subA, * subB, * subC;
+	double* A = NULL, * B = NULL, * C = NULL, * subA, * subB, * subC;
 	int sub_n = n1 / dims[0];
 	int sub_m = n3 / dims[1];
 	subA = (double*)malloc(sizeof(double) * sub_n * n2);
@@ -67,19 +67,20 @@ int main(int argc, char** argv) {
 	}
 	MPI_Bcast(subA, 1, SUB_A, 0, rowComm);
 	MPI_Type_free(&SUB_A);
-
+	
+	if(coords[0]==0){
 	MPI_Datatype SUB_B;
 	MPI_Type_vector(n2, sub_m, n3, MPI_DOUBLE, &SUB_B);
 	MPI_Datatype SUB_B_RES;
 	int mpi_double_size;
 	MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-	MPI_Type_create_resized(SUB_B, 0, sub_m * mpi_double_size , &SUB_B_RES);
+	MPI_Type_create_resized(SUB_B, 0, sub_m * mpi_double_size, &SUB_B_RES);
 	MPI_Type_commit(&SUB_B_RES);
-	if (coords[0]==0)
-		MPI_Scatter(B, 1, SUB_B_RES, subB, sub_m*n2, MPI_DOUBLE, 0, rowComm);
-	MPI_Bcast(subB, sub_m*n2, MPI_DOUBLE, 0, columnComm);
+	MPI_Scatter(B, 1, SUB_B_RES, subB, sub_m * n2, MPI_DOUBLE, 0, rowComm);
 	MPI_Type_free(&SUB_B);
 	MPI_Type_free(&SUB_B_RES);
+	}
+	MPI_Bcast(subB, sub_m * n2, MPI_DOUBLE, 0, columnComm);
 
 	for (int row = 0; row < sub_n; row++) {
 		for (int column = 0; column < sub_m; column++) {
