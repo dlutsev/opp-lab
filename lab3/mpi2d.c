@@ -93,11 +93,11 @@ int main(int argc, char** argv) {
 	free(subA);
 	free(subB);
 
-	MPI_Datatype SUB_C_ROWS, SUB_C_STRIDE;
+	MPI_Datatype SUB_C_ROWS, SUB_C;
 	MPI_Type_contiguous(sub_n * n3, MPI_DOUBLE, &SUB_C_ROWS);
 	MPI_Type_commit(&SUB_C_ROWS);
-	MPI_Type_vector(sub_n, sub_m, n3, MPI_DOUBLE, &SUB_C_STRIDE);
-	MPI_Type_commit(&SUB_C_STRIDE);
+	MPI_Type_vector(sub_n, sub_m, n3, MPI_DOUBLE, &SUB_C);
+	MPI_Type_commit(&SUB_C);
 
 	double* subCRows = NULL;
 	if (coords[1] == 0) {
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		for (int i = 1; i < dims[1]; i++) {
-			MPI_Recv(subCRows + sub_m * i, 1, SUB_C_STRIDE, i, 1111, rowComm, MPI_STATUS_IGNORE);
+			MPI_Recv(subCRows + sub_m * i, 1, SUB_C, i, 1111, rowComm, MPI_STATUS_IGNORE);
 		}
 	}
 	else {
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 		MPI_Gather(subCRows, 1, SUB_C_ROWS, C, 1, SUB_C_ROWS, 0, columnComm);
 	}
 	MPI_Type_free(&SUB_C_ROWS);
-	MPI_Type_free(&SUB_C_STRIDE);
+	MPI_Type_free(&SUB_C);
 	free(subCRows);
 	free(subC);
 
