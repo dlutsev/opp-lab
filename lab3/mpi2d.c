@@ -67,18 +67,17 @@ int main(int argc, char** argv) {
 	}
 	MPI_Bcast(subA, 1, SUB_A, 0, rowComm);
 	MPI_Type_free(&SUB_A);
-	
 	if(coords[0]==0){
-	MPI_Datatype SUB_B;
-	MPI_Type_vector(n2, sub_m, n3, MPI_DOUBLE, &SUB_B);
-	MPI_Datatype SUB_B_RES;
-	int mpi_double_size;
-	MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-	MPI_Type_create_resized(SUB_B, 0, sub_m * mpi_double_size, &SUB_B_RES);
-	MPI_Type_commit(&SUB_B_RES);
-	MPI_Scatter(B, 1, SUB_B_RES, subB, sub_m * n2, MPI_DOUBLE, 0, rowComm);
-	MPI_Type_free(&SUB_B);
-	MPI_Type_free(&SUB_B_RES);
+		MPI_Datatype SUB_B;
+		MPI_Type_vector(n2, sub_m, n3, MPI_DOUBLE, &SUB_B);
+		MPI_Datatype SUB_B_RES;
+		int mpi_double_size;
+		MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
+		MPI_Type_create_resized(SUB_B, 0, sub_m * mpi_double_size, &SUB_B_RES);
+		MPI_Type_commit(&SUB_B_RES);
+		MPI_Scatter(B, 1, SUB_B_RES, subB, sub_m * n2, MPI_DOUBLE, 0, rowComm);
+		MPI_Type_free(&SUB_B);
+		MPI_Type_free(&SUB_B_RES);
 	}
 	MPI_Bcast(subB, sub_m * n2, MPI_DOUBLE, 0, columnComm);
 
@@ -93,10 +92,6 @@ int main(int argc, char** argv) {
 	}
 	free(subA);
 	free(subB);
-
-	MPI_Datatype SUB_C;
-	MPI_Type_contiguous(sub_n * sub_m, MPI_DOUBLE, &SUB_C);
-	MPI_Type_commit(&SUB_C);
 
 	MPI_Datatype SUB_C_ROWS, SUB_C_STRIDE;
 	MPI_Type_contiguous(sub_n * n3, MPI_DOUBLE, &SUB_C_ROWS);
@@ -117,7 +112,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	else {
-		MPI_Send(subC, 1, SUB_C, 0, 1111, rowComm);
+		MPI_Send(subC, sub_n*sub_m, MPI_DOUBLE, 0, 1111, rowComm);
 	}
 
 	if (coords[1] == 0) {
@@ -125,7 +120,6 @@ int main(int argc, char** argv) {
 	}
 	MPI_Type_free(&SUB_C_ROWS);
 	MPI_Type_free(&SUB_C_STRIDE);
-	MPI_Type_free(&SUB_C);
 	free(subCRows);
 	free(subC);
 
@@ -136,7 +130,6 @@ int main(int argc, char** argv) {
 		free(B);
 		free(C);
 	}
-
 	MPI_Finalize();
 	return 0;
 }
