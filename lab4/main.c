@@ -153,7 +153,6 @@ int main(int argc, char** argv) {
     }
 
     double* tmp;
-    int counter = 0;
     MPI_Request requests[4];
 
     char isDiverged = 1;
@@ -190,20 +189,14 @@ int main(int argc, char** argv) {
         char tmpFlag;
         MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_CHAR, MPI_LAND, MPI_COMM_WORLD);
         isDiverged = tmpFlag;
-
-        counter++;
     } while (!isDiverged);
 
     if (rank == 0) timeFinish = MPI_Wtime();
 
-    int tmpCounter;
-    MPI_Allreduce(&counter, &tmpCounter, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    counter = tmpCounter;
 
     CalculateMaxDifference(rank, layerHeight, Phi);
 
     if (rank == 0) {
-        printf("Number of iterations: %d\n", counter);
         printf("Time: %lf\n", (timeFinish - timeStart));
     }
 
