@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
     double* tmp;
     MPI_Request requests[4];
 
-    char isDiverged = 1;
+    int isDiverged = 1;
     do {
         isDiverged = 1;
         tmp = prevPhi;
@@ -183,8 +183,8 @@ int main(int argc, char** argv) {
             MPI_Wait(&requests[3], MPI_STATUS_IGNORE);
         }
         CalculateEdges(layerHeight, prevPhi, Phi, rank, &isDiverged, upLayer, downLayer, size);
-        char tmpFlag;
-        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_CHAR, MPI_LAND, MPI_COMM_WORLD);
+        int tmpFlag;
+        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
         isDiverged = tmpFlag;
     } while (!isDiverged);
 
