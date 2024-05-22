@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 #include "mpi.h"
 
 #define eps 1e-9
@@ -54,7 +55,7 @@ double JacobiMethodTopEdge(int rank, int layerHeight, double* prevPhi, int y, in
     return mult * (xComp + yComp + zComp - rho(X0 + x * hx, Y0 + y * hy, Z0 + (layerHeight * rank) * hz));
 }
 
-void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank, char* flag) {
+void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank, bool* flag) {
     for (int z = 1; z < layerHeight - 1; ++z) {
         for (int y = 1; y < Ny - 1; ++y) {
             for (int x = 1; x < Nx - 1; ++x) {
@@ -67,7 +68,7 @@ void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank,
     }
 }
 
-void CalculateEdges(int layerHeight, double* prevPhi, double* Phi, int rank, char* flag, const double* upLayer, const double* downLayer, int size) {
+void CalculateEdges(int layerHeight, double* prevPhi, double* Phi, int rank, bool* flag, const double* upLayer, const double* downLayer, int size) {
     for (int y = 1; y < Ny - 1; ++y) {
         for (int x = 1; x < Nx - 1; ++x) {
             if (rank != 0) {
@@ -154,7 +155,7 @@ int main(int argc, char** argv) {
     double* tmp;
     MPI_Request requests[4];
 
-    int isDiverged = 1;
+    bool isDiverged = 1;
     do {
         isDiverged = 1;
         tmp = prevPhi;
@@ -183,8 +184,8 @@ int main(int argc, char** argv) {
             MPI_Wait(&requests[3], MPI_STATUS_IGNORE);
         }
         CalculateEdges(layerHeight, prevPhi, Phi, rank, &isDiverged, upLayer, downLayer, size);
-        int tmpFlag;
-        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+        bool tmpFlag;
+        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
         isDiverged = tmpFlag;
     } while (!isDiverged);
 
