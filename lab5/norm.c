@@ -155,7 +155,7 @@ static inline void execute_tasks() {
 
         for (int i = 0; i < task.weight; ++i) {
             for (int j = 0; j < 180; ++j) {
-                global_res += sqrt(sqrt(sqrt(sqrt(i))));
+                global_res += sqrt(i)*sqrt(j);
             }
         }
 
