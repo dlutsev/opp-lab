@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <stdbool.h>
 #include "mpi.h"
 
 #define eps 1e-9
@@ -47,15 +46,15 @@ double JacobiMethodBottomEdge(int rank, int layerHeight, double* prevPhi, int x,
     return mult * (xComp + yComp + zComp - rho(X0 + x * hx, Y0 + y * hy, Z0 + ((layerHeight - 1) + layerHeight * rank) * hz));
 }
 
-double JacobiMethodTopEdge(int rank, int layerHeight, double* prevPhi, int y, int x, const double* upLayer) {
+double JacobiMethodTopEdge(int rank, int layerHeight, double* prevPhi, int y, int x, const double* topLayer) {
     double xComp = (prevPhi[Nx * y + (x - 1)] + prevPhi[Nx * y + (x + 1)]) / (hx * hx);
     double yComp = (prevPhi[Nx * (y - 1) + x] + prevPhi[Nx * (y + 1) + x]) / (hy * hy);
-    double zComp = (upLayer[Nx * y + x] + prevPhi[Nx * Ny + Nx * y + x]) / (hz * hz);
+    double zComp = (topLayer[Nx * y + x] + prevPhi[Nx * Ny + Nx * y + x]) / (hz * hz);
     double mult = 1.0 / (2.0 / (hx * hx) + 2.0 / (hy * hy) + 2.0 / (hz * hz) + a);
     return mult * (xComp + yComp + zComp - rho(X0 + x * hx, Y0 + y * hy, Z0 + (layerHeight * rank) * hz));
 }
 
-void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank, bool* flag) {
+void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank, char* flag) {
     for (int z = 1; z < layerHeight - 1; ++z) {
         for (int y = 1; y < Ny - 1; ++y) {
             for (int x = 1; x < Nx - 1; ++x) {
@@ -68,14 +67,14 @@ void CalculateCenter(double layerHeight, double* prevPhi, double* Phi, int rank,
     }
 }
 
-void CalculateEdges(int layerHeight, double* prevPhi, double* Phi, int rank, bool* flag, const double* upLayer, const double* downLayer, int size) {
+void CalculateEdges(int layerHeight, double* prevPhi, double* Phi, int rank, char* flag, const double* downLayer, const double* upLayer, int size) {
     for (int y = 1; y < Ny - 1; ++y) {
         for (int x = 1; x < Nx - 1; ++x) {
             if (rank != 0) {
-                Phi[Nx * y + x] = JacobiMethodTopEdge(rank, layerHeight, prevPhi, x, y, upLayer);
+                Phi[Nx * y + x] = JacobiMethodTopEdge(rank, layerHeight, prevPhi, x, y, downLayer);
             }
             if (rank != size - 1) {
-                Phi[Nx * Ny * (layerHeight - 1) + Nx * y + x] = JacobiMethodBottomEdge(rank, layerHeight, prevPhi, x, y, downLayer);
+                Phi[Nx * Ny * (layerHeight - 1) + Nx * y + x] = JacobiMethodBottomEdge(rank, layerHeight, prevPhi, x, y, upLayer);
             }
             if (fabs(Phi[Nx * y + x] - prevPhi[Nx * y + x]) > eps) {
                 (*flag) = 0;
@@ -85,22 +84,23 @@ void CalculateEdges(int layerHeight, double* prevPhi, double* Phi, int rank, boo
 }
 
 void CalculateMaxDifference(int rank, int layerHeight, double* Phi) {
-    double max_this_proc = 0;
-    double diff = 0;
     double max = 0;
+    double diff = 0;
+    double tmp = 0;
     for (int z = 0; z < layerHeight; ++z) {
         for (int y = 0; y < Ny; ++y) {
             for (int x = 0; x < Nx; ++x) {
                 diff = fabs(Phi[z * Nx * Ny + y * Nx + x] - phi(X0 + x * hx, Y0 + y * hy, Z0 + (z + layerHeight * rank) * hz));
-                if (diff > max_this_proc) {
-                    max_this_proc = diff;
+                if (diff > max) {
+                    max = diff;
                 }
             }
         }
     }
-    MPI_Allreduce(&max_this_proc, &max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&max, &tmp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    max = tmp;
     if (rank == 0) {
-        printf("Max difference: %.12lf\n", max_this_proc);
+        printf("Max difference: %lf\n", max);
     }
 }
 
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     double* Phi = (double*)malloc(sizeof(double) * Nx * Ny * layerHeight);
     double* prevPhi = (double*)malloc(sizeof(double) * Nx * Ny * layerHeight);
     double* upLayer = (double*)malloc(sizeof(double) * Nx * Ny);
-    double* downLayer = (double*)malloc(sizeof(double) * Nx * Ny);
+    double* bottomLayer = (double*)malloc(sizeof(double) * Nx * Ny);
 
     if (rank == 0) timeStart = MPI_Wtime();
 
@@ -137,8 +137,8 @@ int main(int argc, char** argv) {
     if (rank == 0) {
         for (int y = 0; y < Ny; ++y) {
             for (int x = 0; x < Nx; ++x) {
-                Phi[Nx * y + x] = phi(X0 + x * hx, Y0 + y * hy, Z0);
-                prevPhi[Nx * y + x] = phi(X0 + x * hx, Y0 + y * hy, Z0);
+                Phi[0 + Nx * y + x] = phi(X0 + x * hx, Y0 + y * hy, Z0);
+                prevPhi[0 + Nx * y + x] = phi(X0 + x * hx, Y0 + y * hy, Z0);
             }
         }
     }
@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
     double* tmp;
     MPI_Request requests[4];
 
-    bool isDiverged = 1;
+    char isDiverged = 1;
     do {
         isDiverged = 1;
         tmp = prevPhi;
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
 
         if (rank != size - 1) {
             MPI_Isend(&prevPhi[(layerHeight - 1) * Nx * Ny], Nx * Ny, MPI_DOUBLE, rank + 1, 20, MPI_COMM_WORLD, &requests[2]);
-            MPI_Irecv(downLayer, Nx * Ny, MPI_DOUBLE, rank + 1, 10, MPI_COMM_WORLD, &requests[3]);
+            MPI_Irecv(bottomLayer, Nx * Ny, MPI_DOUBLE, rank + 1, 10, MPI_COMM_WORLD, &requests[3]);
         }
 
         CalculateCenter(layerHeight, prevPhi, Phi, rank, &isDiverged);
@@ -183,9 +183,11 @@ int main(int argc, char** argv) {
             MPI_Wait(&requests[2], MPI_STATUS_IGNORE);
             MPI_Wait(&requests[3], MPI_STATUS_IGNORE);
         }
-        CalculateEdges(layerHeight, prevPhi, Phi, rank, &isDiverged, upLayer, downLayer, size);
-        bool tmpFlag;
-        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
+
+        CalculateEdges(layerHeight, prevPhi, Phi, rank, &isDiverged, upLayer, bottomLayer, size);
+
+        char tmpFlag;
+        MPI_Allreduce(&isDiverged, &tmpFlag, 1, MPI_CHAR, MPI_LAND, MPI_COMM_WORLD);
         isDiverged = tmpFlag;
     } while (!isDiverged);
 
@@ -197,10 +199,7 @@ int main(int argc, char** argv) {
     if (rank == 0) {
         printf("Time: %lf\n", (timeFinish - timeStart));
     }
-    free(Phi);
-    free(prevPhi);
-    free(upLayer);
-    free(downLayer);
+
     MPI_Finalize();
     return 0;
 }
